@@ -5,6 +5,10 @@ from typing import Any
 from fastmcp import FastMCP
 from pydantic import Field
 
+from ghostfolio_mcp.filters import AccountsFilter
+from ghostfolio_mcp.filters import AssetClassesFilter
+from ghostfolio_mcp.filters import TagsFilter
+from ghostfolio_mcp.filters import filter_params
 from ghostfolio_mcp.ghostfolio_client import get_ghostfolio_client
 from ghostfolio_mcp.models import GhostfolioConfig
 from ghostfolio_mcp.utils import quote_path_segment
@@ -23,7 +27,11 @@ def register_portfolio_tools(mcp: FastMCP, config: GhostfolioConfig) -> None:
             "idempotentHint": True,
         },
     )
-    async def get_portfolio_details() -> dict[str, Any]:
+    async def get_portfolio_details(
+        accounts: AccountsFilter = None,
+        tags: TagsFilter = None,
+        asset_classes: AssetClassesFilter = None,
+    ) -> dict[str, Any]:
         """
         Get comprehensive portfolio details including accounts, positions, and summary.
 
@@ -34,7 +42,8 @@ def register_portfolio_tools(mcp: FastMCP, config: GhostfolioConfig) -> None:
             Dictionary containing complete portfolio information including accounts, positions, and summary
         """
         async with get_ghostfolio_client(config) as client:
-            return await client.get("portfolio/details")
+            params = await filter_params(client, accounts, tags, asset_classes)
+            return await client.get("portfolio/details", params=params or None)
 
     @mcp.tool(
         tags={"portfolio", "dividends", "read-only"},
@@ -59,6 +68,9 @@ def register_portfolio_tools(mcp: FastMCP, config: GhostfolioConfig) -> None:
                 description="Time range for dividend data. Options: 1d, 1w, 1m, 3m, 6m, 1y, 2y, 5y, max",
             ),
         ] = "max",
+        accounts: AccountsFilter = None,
+        tags: TagsFilter = None,
+        asset_classes: AssetClassesFilter = None,
     ) -> dict[str, Any]:
         """
         Get dividend data grouped by time period showing dividend payments and yield.
@@ -76,7 +88,11 @@ def register_portfolio_tools(mcp: FastMCP, config: GhostfolioConfig) -> None:
         async with get_ghostfolio_client(config) as client:
             return await client.get(
                 "portfolio/dividends",
-                params={"range": date_range, "groupBy": group_by},
+                params={
+                    "range": date_range,
+                    "groupBy": group_by,
+                    **await filter_params(client, accounts, tags, asset_classes),
+                },
             )
 
     @mcp.tool(
@@ -95,6 +111,9 @@ def register_portfolio_tools(mcp: FastMCP, config: GhostfolioConfig) -> None:
                 description="Time range for holdings data. Options: 1d, 1w, 1m, 3m, 6m, 1y, 2y, 5y, max",
             ),
         ] = "max",
+        accounts: AccountsFilter = None,
+        tags: TagsFilter = None,
+        asset_classes: AssetClassesFilter = None,
     ) -> dict[str, Any]:
         """
         Get portfolio holdings and positions including allocations and asset breakdowns.
@@ -109,7 +128,11 @@ def register_portfolio_tools(mcp: FastMCP, config: GhostfolioConfig) -> None:
             Dictionary containing holdings, accounts, allocations, and range data
         """
         async with get_ghostfolio_client(config) as client:
-            return await client.get("portfolio/holdings", params={"range": date_range})
+            params = {
+                "range": date_range,
+                **await filter_params(client, accounts, tags, asset_classes),
+            }
+            return await client.get("portfolio/holdings", params=params)
 
     @mcp.tool(
         tags={"portfolio", "investments", "read-only"},
@@ -134,6 +157,9 @@ def register_portfolio_tools(mcp: FastMCP, config: GhostfolioConfig) -> None:
                 description="Time range for investment data. Options: 1d, 1w, 1m, 3m, 6m, 1y, 2y, 5y, max",
             ),
         ] = "max",
+        accounts: AccountsFilter = None,
+        tags: TagsFilter = None,
+        asset_classes: AssetClassesFilter = None,
     ) -> dict[str, Any]:
         """
         Get investment data grouped by time period showing cash flows and contributions.
@@ -151,7 +177,11 @@ def register_portfolio_tools(mcp: FastMCP, config: GhostfolioConfig) -> None:
         async with get_ghostfolio_client(config) as client:
             return await client.get(
                 "portfolio/investments",
-                params={"range": date_range, "groupBy": group_by},
+                params={
+                    "range": date_range,
+                    "groupBy": group_by,
+                    **await filter_params(client, accounts, tags, asset_classes),
+                },
             )
 
     @mcp.tool(
@@ -170,6 +200,9 @@ def register_portfolio_tools(mcp: FastMCP, config: GhostfolioConfig) -> None:
                 description="Time range for performance data. Options: 1d, 1w, 1m, 3m, 6m, 1y, 2y, 5y, max",
             ),
         ] = "max",
+        accounts: AccountsFilter = None,
+        tags: TagsFilter = None,
+        asset_classes: AssetClassesFilter = None,
         include_chart: Annotated[
             bool,
             Field(
@@ -194,7 +227,12 @@ def register_portfolio_tools(mcp: FastMCP, config: GhostfolioConfig) -> None:
         """
         async with get_ghostfolio_client(config) as client:
             result = await client.get(
-                "portfolio/performance", params={"range": date_range}, api_version="v2"
+                "portfolio/performance",
+                params={
+                    "range": date_range,
+                    **await filter_params(client, accounts, tags, asset_classes),
+                },
+                api_version="v2",
             )
             if not include_chart:
                 result.pop("chart", None)
