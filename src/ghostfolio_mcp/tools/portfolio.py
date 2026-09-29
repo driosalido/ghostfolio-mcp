@@ -170,6 +170,13 @@ def register_portfolio_tools(mcp: FastMCP, config: GhostfolioConfig) -> None:
                 description="Time range for performance data. Options: 1d, 1w, 1m, 3m, 6m, 1y, 2y, 5y, max",
             ),
         ] = "max",
+        include_chart: Annotated[
+            bool,
+            Field(
+                default=False,
+                description="Include the daily chart series (large: one point per day since the first activity)",
+            ),
+        ] = False,
     ) -> dict[str, Any]:
         """
         Get portfolio performance data including returns, benchmarks, and performance metrics.
@@ -179,14 +186,19 @@ def register_portfolio_tools(mcp: FastMCP, config: GhostfolioConfig) -> None:
 
         Args:
             date_range: Time range for performance data. Options: 1d, 1w, 1m, 3m, 6m, 1y, 2y, 5y, max
+            include_chart: Include the daily chart series; off by default because
+                over "max" it runs to hundreds of thousands of characters
 
         Returns:
             Dictionary containing performance metrics, returns, benchmarks, and range data
         """
         async with get_ghostfolio_client(config) as client:
-            return await client.get(
+            result = await client.get(
                 "portfolio/performance", params={"range": date_range}, api_version="v2"
             )
+            if not include_chart:
+                result.pop("chart", None)
+            return result
 
     @mcp.tool(
         tags={"portfolio", "positions", "read-only"},
