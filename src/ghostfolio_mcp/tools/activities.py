@@ -12,6 +12,32 @@ from ghostfolio_mcp.utils import quote_path_segment
 logger = logging.getLogger(__name__)
 
 
+async def _get_user_tags(client: Any) -> list[dict[str, Any]]:
+    """Return the user's tags as [{"id", "name"}] from GET /v1/user."""
+    user = await client.get("user")
+    return [{"id": t["id"], "name": t["name"]} for t in user.get("tags", [])]
+
+
+async def _resolve_tag_ids(client: Any, tags: list[str]) -> list[str]:
+    """Map tag names or IDs to IDs, failing on any unknown tag.
+
+    Ghostfolio expects IDs; failing here with the valid names beats sending a
+    name and ending up with an activity missing from every view filtered by
+    that tag.
+    """
+    known = await _get_user_tags(client)
+    by_id = {t["id"]: t["id"] for t in known}
+    by_name = {t["name"]: t["id"] for t in known}
+    resolved = []
+    for tag in tags:
+        tag_id = by_id.get(tag) or by_name.get(tag)
+        if tag_id is None:
+            available = ", ".join(sorted(by_name)) or "none"
+            raise ValueError(f"Unknown tag {tag!r}. Available tags: {available}")
+        resolved.append(tag_id)
+    return resolved
+
+
 def register_activities_tools(mcp: FastMCP, config: GhostfolioConfig) -> None:
     """Register activity/order-related Ghostfolio tools with the FastMCP server."""
 
@@ -88,11 +114,19 @@ def register_activities_tools(mcp: FastMCP, config: GhostfolioConfig) -> None:
             float, Field(default=0.0, description="Optional fee amount")
         ] = 0.0,
         comment: Annotated[str, Field(default="", description="Optional comment")] = "",
+        tags: Annotated[
+            list[str] | None,
+            Field(
+                default=None,
+                description="Optional tag names or IDs (see get_tags), e.g. ['BOLSA']",
+            ),
+        ] = None,
     ) -> dict[str, Any]:
         """
         Create a single new transaction/activity.
         """
         async with get_ghostfolio_client(config) as client:
+            tag_ids = await _resolve_tag_ids(client, tags) if tags else []
             activity_data = {
                 "type": type,
                 "symbol": symbol,
@@ -105,7 +139,24 @@ def register_activities_tools(mcp: FastMCP, config: GhostfolioConfig) -> None:
                 "fee": fee,
                 "comment": comment,
             }
+            if tag_ids:
+                activity_data["tags"] = tag_ids
             return await client.post("activities", data=activity_data)
+
+    @mcp.tool(
+        tags={"portfolio", "tags", "read-only"},
+        annotations={
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+        },
+    )
+    async def get_tags() -> list[dict[str, Any]]:
+        """
+        List the user's tags (id and name), for tagging activities.
+        """
+        async with get_ghostfolio_client(config) as client:
+            return await _get_user_tags(client)
 
     @mcp.tool(
         tags={"portfolio", "activities", "delete"},

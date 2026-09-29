@@ -145,6 +145,12 @@ GHOSTFOLIO_TIMEOUT=30
 # Set READ_ONLY_MODE true to disable all write operations (put, post, delete)
 READ_ONLY_MODE=false
 
+# Write Tools (only with READ_ONLY_MODE=true)
+# Comma-separated tool names re-enabled on top of read-only mode. An allowlist:
+# any write tool not named here stays disabled.
+# Example: GHOSTFOLIO_WRITE_TOOLS=create_activity
+GHOSTFOLIO_WRITE_TOOLS=
+
 # Disabled Tags
 # Comma-separated list of tags to disable tools for (empty by default)
 # Example: GHOSTFOLIO_DISABLED_TAGS=portfolio,symbol

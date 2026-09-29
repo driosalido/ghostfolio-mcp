@@ -15,6 +15,10 @@ class GhostfolioConfig(BaseModel):
     disabled_tags: set[str] = Field(
         default_factory=set, description="Set of tags to disable tools for"
     )
+    write_tools: set[str] = Field(
+        default_factory=set,
+        description="Tool names re-enabled on top of read-only mode (an allowlist)",
+    )
     rate_limit_enabled: bool = Field(
         False, description="Enable rate limiting (true/false)"
     )

@@ -98,9 +98,16 @@ def configure_component_visibility() -> None:
     disabled_tags = getattr(GHOSTFOLIO_CONFIG, "disabled_tags", set())
     read_only_mode = getattr(GHOSTFOLIO_CONFIG, "read_only_mode", False)
 
+    write_tools = getattr(GHOSTFOLIO_CONFIG, "write_tools", set())
+
     if read_only_mode:
         logger.info("Read-only mode is enabled - restricting to read-only components")
         mcp.enable(tags={"read-only"}, only=True)
+        # An allowlist rather than a denylist: a write tool added upstream stays
+        # off until it is named here.
+        if write_tools:
+            logger.info("Re-enabling write tools: %s", write_tools)
+            mcp.enable(names=write_tools)
 
     if disabled_tags:
         logger.info(

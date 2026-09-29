@@ -236,7 +236,14 @@ def get_ghostfolio_config_from_env() -> GhostfolioConfig:
             tag.strip() for tag in disabled_tags_str.split(",") if tag.strip()
         }
 
+    write_tools = {
+        name.strip()
+        for name in os.getenv("GHOSTFOLIO_WRITE_TOOLS", "").split(",")
+        if name.strip()
+    }
+
     return GhostfolioConfig(
+        write_tools=write_tools,
         ghostfolio_url=os.getenv("GHOSTFOLIO_URL", ""),
         token=os.getenv("GHOSTFOLIO_TOKEN", ""),
         verify_ssl=parse_bool(os.getenv("GHOSTFOLIO_VERIFY_SSL"), default=True),
