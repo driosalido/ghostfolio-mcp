@@ -1,0 +1,32 @@
+name: home image
+
+# Imagen del despliegue propio (rama `home`), separada de docker-publish.yml
+# para no chocar con el upstream, que solo publica `main` y tags.
+on:
+  push:
+    branches: [home]
+    paths-ignore: ['docs/**', '**.md']
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # sha-<sha completo> es la etiqueta que fija el stack; `home` existe
+          # para mirar, no para desplegar.
+          tags: |
+            ghcr.io/driosalido/ghostfolio-mcp:sha-${{ github.sha }}
+            ghcr.io/driosalido/ghostfolio-mcp:home
